@@ -17,6 +17,7 @@ namespace UnityChan
 		Transform jumpPos;			// Jump Camera locater
         Transform fpsPos;
         private GameObject cameraObject;    // メインカメラへの参照
+        private GameObject predictorObject;
 
         // スムーズに繋がない時（クイック切り替え）用のブーリアンフラグ
         bool bQuickSwitch = false;	//Change Camera Position Quickly
@@ -35,6 +36,12 @@ namespace UnityChan
 
             if (GameObject.Find("FpsPos"))
                 fpsPos = GameObject.Find("FpsPos").transform;
+
+            if (GameObject.Find("Predictor")) {
+                predictorObject = GameObject.Find("Predictor");
+            } else {
+                Debug.Log("Predictor not defined.");
+            }
 
             //カメラをスタートする
             transform.position = standardPos.position;	
@@ -109,38 +116,35 @@ namespace UnityChan
         //[SerializeField] private Camera _captureCamera;
 
         public IEnumerator Capture() {
-            //_captureCameraに写るものを800*600でPNG画像として保存
-            Debug.Log("do capture!");
             var cam = cameraObject.GetComponent<Camera>();
-            if (cam == null) {
-                Debug.Log("cam is null");
-            }
-            var coroutine = StartCoroutine(CaptureFromCamera(800, 600, cam));
+            Debug.Log("Screen Width : " + Screen.width);
+            Debug.Log("Screen  height: " + Screen.height);
+
+            var coroutine = StartCoroutine(CaptureFromCamera(Screen.width, Screen.height, cam));
             yield return coroutine;
         }
 
-        /// <summary>
-        /// CaptureMain
-        /// </summary>
-        /// <param name="width">横解像度</param>
-        /// <param name="height">縦解像度</param>
         private IEnumerator CaptureFromCamera(int width, int height, Camera camera) {
             var prevTexture = camera.targetTexture;
 
-            Texture2D tex = new Texture2D(width, height, TextureFormat.ARGB32, false);
-
+            // MainCamera の出力を2DTextureに出力して描画を待つ              
+            //Texture2D tex = new Texture2D(width, height, TextureFormat.ARGB32, false);
+            Texture2D tex = new Texture2D(width, height, TextureFormat.RGB24, false);
             camera.targetTexture = new RenderTexture(width, height, 24);
-
             yield return new WaitForEndOfFrame();
 
             RenderTexture.active = camera.targetTexture;
             tex.ReadPixels(new Rect(0, 0, camera.targetTexture.width, camera.targetTexture.height), 0, 0);
             tex.Apply();
-            Debug.Log("captured!");
 
+            // ファイル保存
             byte[] bytes = tex.EncodeToPNG();
             string savePath = Application.streamingAssetsPath + CAPUTURED_PICTURE_SAVE_DIRECTORY + "capture.png";
             File.WriteAllBytes(savePath, bytes);
+
+            // 推論
+            var yolo = predictorObject.GetComponent<TinyYolo>();
+            yolo.doPredict(tex);
 
             Destroy(tex);
 
