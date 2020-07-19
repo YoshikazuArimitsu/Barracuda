@@ -117,10 +117,11 @@ namespace UnityChan
 
         public IEnumerator Capture() {
             var cam = cameraObject.GetComponent<Camera>();
-            Debug.Log("Screen Width : " + Screen.width);
-            Debug.Log("Screen  height: " + Screen.height);
+            //Debug.Log("Screen Width : " + Screen.width);
+            //Debug.Log("Screen  height: " + Screen.height);
 
-            var coroutine = StartCoroutine(CaptureFromCamera(Screen.width, Screen.height, cam));
+            var coroutine = StartCoroutine(CaptureFromCamera(416, 416, cam));
+            //var coroutine = StartCoroutine(CaptureFromCamera(Screen.width, Screen.height, cam));
             yield return coroutine;
         }
 

@@ -1,7 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.Drawing;
 using System;
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 using Unity.Barracuda;
@@ -58,32 +58,30 @@ class YoloOutputParser
             "pottedplant", "sheep", "sofa", "train", "tvmonitor"
     };
 
-    /*
     private static Color[] classColors = new Color[]
     {
-            Color.Khaki,
-            Color.Fuchsia,
-            Color.Silver,
-            Color.RoyalBlue,
-            Color.Green,
-            Color.DarkOrange,
-            Color.Purple,
-            Color.Gold,
-            Color.Red,
-            Color.Aquamarine,
-            Color.Lime,
-            Color.AliceBlue,
-            Color.Sienna,
-            Color.Orchid,
-            Color.Tan,
-            Color.LightPink,
-            Color.Yellow,
-            Color.HotPink,
-            Color.OliveDrab,
-            Color.SandyBrown,
-            Color.DarkTurquoise
+            Color.cyan,
+            Color.green,
+            Color.magenta,
+            Color.red,
+            Color.yellow,
+            Color.black,
+            Color.blue,
+            Color.cyan,
+            Color.green,
+            Color.magenta,
+            Color.red,
+            Color.yellow,
+            Color.black,
+            Color.blue,
+            Color.cyan,
+            Color.green,
+            Color.magenta,
+            Color.red,
+            Color.yellow,
+            Color.black,
+            Color.blue,
     };
-    */
 
     private float Sigmoid(float value) {
         var k = (float)Math.Exp(value);
@@ -168,6 +166,15 @@ class YoloOutputParser
     public IList<YoloBoundingBox> ParseOutputs(Tensor yoloModelOutputs, float threshold = .3F) {
         var boxes = new List<YoloBoundingBox>();
 
+        {
+            int row = 6;
+            int column = 9;
+            int channel = 75;
+            float confidence = GetConfidence(yoloModelOutputs, row, column, channel);
+            Debug.Log("6,9,75=" + confidence);
+            Debug.Log("mo = " + yoloModelOutputs[0, 6, 9, channel + 4]);
+        }
+
         for (int row = 0; row < ROW_COUNT; row++) {
             for (int column = 0; column < COL_COUNT; column++) {
                 for (int box = 0; box < BOXES_PER_CELL; box++) {
@@ -199,7 +206,7 @@ class YoloOutputParser
                         },
                         Confidence = topScore,
                         Label = labels[topResultIndex],
-                        // BoxColor = classColors[topResultIndex]
+                        BoxColor = classColors[topResultIndex]
                     });
                 }
             }
@@ -271,22 +278,36 @@ public class TinyYolo : MonoBehaviour
     }
 
     public void doPredict(Texture2D texture) {
-        Debug.Log("Predicting...");
-
         // 推論
+#if false
+        var picture = texture.GetPixels32();
+        float[] floatValues = new float[416 * 416 * 3];
+        for(int i = 0; i < picture.Length; ++i) {
+            var c = picture[i];
+            var IMAGE_MEAN = 0;
+            var IMAGE_STD = 1f;
+            floatValues[i * 3 + 0] = c.r / 255f; //(c.r - IMAGE_MEAN) / IMAGE_STD;
+            floatValues[i * 3 + 1] = c.g / 255f; //(c.g - IMAGE_MEAN) / IMAGE_STD;
+            floatValues[i * 3 + 2] = c.b / 255f; //(c.b - IMAGE_MEAN) / IMAGE_STD;
+        }
+        Tensor input = new Tensor(1, 416, 416, 3, floatValues);
+#endif
+#if true
         Tensor input = new Tensor(texture);
-        m_worker.Execute(input);
-        Tensor output = m_worker.PeekOutput();
+#endif
+        input.Print();
 
-        var shape = output.shape;
-        Debug.Log(shape + " or " + shape.batch + shape.height + shape.width + shape.channels);
+        // m_worker.Execute(input);
+        // Tensor output = m_worker.PeekOutput();
+        Tensor output = m_worker.ExecuteAndWaitForCompletion(input);
+        output.Print();
 
         var yop = new YoloOutputParser();
-        var output_bb = yop.ParseOutputs(output, 0.01f);
+        var output_bb = yop.ParseOutputs(output, 0.3f);
 
         foreach(var bb in output_bb) {
             Debug.Log("------");
-            Debug.Log(bb.Label);
+            Debug.Log($"{bb.Label} : {bb.Confidence}");
         }
     }
 }
